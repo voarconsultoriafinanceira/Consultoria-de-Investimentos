@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gestão de Carteira — Voar Consultoria Financeira</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg:#080e0e;--surface:#0d1a1a;--surface2:#112020;
+  --border:rgba(0,180,160,.12);--border-hover:rgba(0,180,160,.28);
+  --text:#e8f4f4;--muted:#5a8080;--accent:#00a896;--accent2:#4dd9c8;
+  --voar:#004346;--voar-mid:#006b6e;--voar-light:#00a896;
+  --blue:#4a9eff;--teal:#00c4b4;--amber:#f0a332;--red:#f06060;--green:#3ecfa0;
+  --radius:12px;--radius-lg:16px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 80% 50% at 10% 15%,rgba(0,107,110,.18) 0%,transparent 55%),radial-gradient(ellipse 50% 40% at 90% 85%,rgba(0,168,150,.08) 0%,transparent 55%);pointer-events:none;z-index:0}
+
+/* TOPBAR */
+.topbar{position:sticky;top:0;z-index:50;background:rgba(8,14,14,.92);backdrop-filter:blur(12px);border-bottom:.5px solid var(--border);padding:0 32px;height:60px;display:flex;align-items:center;justify-content:space-between}
+.topbar-brand{display:flex;align-items:center;gap:12px}
+.brand-mark{width:32px;height:32px;background:linear-gradient(135deg,var(--voar-mid),var(--accent2));border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:'DM Serif Display',serif;font-size:15px;color:#fff;flex-shrink:0}
+.brand-name{font-family:'DM Serif Display',serif;font-size:17px;color:var(--text)}
+.brand-name em{font-style:italic;color:var(--accent2)}
+.topbar-badge{font-size:11px;color:var(--accent2);background:rgba(0,180,160,.08);border:.5px solid rgba(0,180,160,.2);padding:4px 12px;border-radius:99px;letter-spacing:.04em}
+.topbar-stats{display:flex;gap:28px}
+.ts{text-align:right}
+.ts-lbl{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600}
+.ts-val{font-family:'DM Serif Display',serif;font-size:16px;color:var(--accent2);margin-top:1px}
+
+/* LAYOUT */
+.main{max-width:1180px;margin:0 auto;padding:40px 32px 80px;position:relative;z-index:1}
+
+/* SECTION TITLES */
+.section-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:16px;display:flex;align-items:center;gap:10px}
+.section-title::after{content:'';flex:1;height:.5px;background:var(--border)}
+.section-num{width:22px;height:22px;border-radius:6px;background:var(--voar-mid);color:var(--accent2);font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+
+/* PANEL ROW: table + chart side by side */
+.panel-row{display:grid;grid-template-columns:1fr 320px;gap:16px;margin-bottom:28px;align-items:start}
+
+/* CARD */
+.card{background:var(--surface);border:.5px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;transition:border-color .2s}
+.card:hover{border-color:var(--border-hover)}
+.card-header{padding:18px 22px 14px;border-bottom:.5px solid var(--border);background:rgba(255,255,255,.02);display:flex;align-items:center;justify-content:space-between}
+.card-title{font-family:'DM Serif Display',serif;font-size:16px;color:var(--text)}
+.card-sub{font-size:11px;color:var(--muted);margin-top:2px}
+
+/* TABLE */
+.data-table{width:100%;border-collapse:collapse;font-size:13px}
+.data-table th{text-align:left;padding:9px 14px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);border-bottom:.5px solid var(--border);background:var(--surface2)}
+.data-table td{padding:9px 14px;border-bottom:.5px solid rgba(0,180,160,.06);vertical-align:middle}
+.data-table tr:last-child td{border-bottom:none}
+.data-table tbody tr:hover td{background:rgba(0,168,150,.04)}
+.data-table input[type=text],.data-table input[type=number],.data-table select{
+  background:var(--surface2);border:.5px solid var(--border-hover);border-radius:8px;
+  color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;
+  padding:6px 10px;outline:none;transition:border-color .2s;
+}
+.data-table input:focus,.data-table select:focus{border-color:var(--voar-light);box-shadow:0 0 0 3px rgba(0,168,150,.1)}
+select option{background:#112020}
+
+.totals-row td{font-weight:600;background:rgba(0,168,150,.04)!important;border-top:.5px solid var(--border-hover)!important}
+
+.table-footer{padding:12px 14px;border-top:.5px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border-radius:20px;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;cursor:pointer;border:.5px solid var(--border-hover);background:transparent;color:var(--muted);transition:all .15s;letter-spacing:.02em}
+.btn:hover{background:rgba(0,168,150,.1);border-color:var(--voar-light);color:var(--accent2)}
+.btn-rm{background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:18px;line-height:1;padding:2px 5px;border-radius:5px;transition:color .15s;display:flex;align-items:center}
+.btn-rm:hover{color:var(--red)}
+
+/* PIE CHART CARD */
+.pie-card{background:var(--surface);border:.5px solid var(--border);border-radius:var(--radius-lg);padding:22px;display:flex;flex-direction:column;gap:16px;transition:border-color .2s}
+.pie-card:hover{border-color:var(--border-hover)}
+.pie-card-title{font-family:'DM Serif Display',serif;font-size:15px;color:var(--text)}
+.pie-card-sub{font-size:11px;color:var(--muted);margin-top:2px}
+.pie-wrap{position:relative;width:180px;height:180px;margin:0 auto;flex-shrink:0}
+.pie-center{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none}
+.pie-center-val{font-family:'DM Serif Display',serif;font-size:20px;color:var(--accent2);line-height:1.1}
+.pie-center-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-weight:600;margin-top:2px}
+.legend{display:flex;flex-direction:column;gap:5px}
+.leg-row{display:flex;align-items:center;gap:7px;font-size:12px;cursor:default}
+.leg-dot{width:9px;height:9px;border-radius:3px;flex-shrink:0}
+.leg-name{flex:1;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.leg-val{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;margin-left:4px}
+.leg-alvo{font-size:10px;color:var(--muted);font-weight:600}
+
+/* BAR */
+.bar-wrap{display:flex;align-items:center;gap:7px}
+.bar-bg{flex:1;height:5px;background:var(--surface2);border-radius:3px;overflow:hidden;min-width:40px}
+.bar-fill{height:100%;border-radius:3px;transition:width .5s ease}
+.bar-pct{font-size:11px;font-variant-numeric:tabular-nums;width:38px;text-align:right;flex-shrink:0;color:var(--accent2)}
+
+/* COLOR DOT */
+.cdot{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:5px;flex-shrink:0}
+
+/* WARNING */
+.warn-tag{font-size:11px;color:var(--amber);background:rgba(240,163,50,.1);border:.5px solid rgba(240,163,50,.25);border-radius:6px;padding:3px 9px;font-weight:600}
+
+/* APORTE SECTION */
+.aporte-grid{display:grid;grid-template-columns:280px 1fr;gap:16px;margin-bottom:20px;align-items:start}
+.aporte-input-card{background:var(--surface);border:.5px solid var(--border);border-radius:var(--radius-lg);padding:24px;transition:border-color .2s}
+.aporte-input-card:hover{border-color:var(--border-hover)}
+.ai-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:10px}
+.big-wrap{display:flex;align-items:baseline;gap:6px;margin-bottom:16px}
+.big-prefix{font-family:'DM Serif Display',serif;font-size:22px;color:var(--muted)}
+.big-input{font-family:'DM Serif Display',serif;font-size:36px;font-weight:400;color:var(--accent2);border:none;outline:none;background:transparent;width:100%;min-width:0;padding:0;line-height:1.1;-moz-appearance:textfield}
+.big-input::-webkit-inner-spin-button,.big-input::-webkit-outer-spin-button{-webkit-appearance:none}
+.big-input::placeholder{color:rgba(77,217,200,.2)}
+.ai-info-row{display:flex;justify-content:space-between;font-size:12px;padding:5px 0;border-bottom:.5px solid var(--border)}
+.ai-info-row:last-child{border-bottom:none}
+.ai-info-lbl{color:var(--muted)}
+.ai-info-val{font-variant-numeric:tabular-nums;font-weight:500}
+
+/* APORTE RESULT TABLE */
+.aporte-card{background:var(--surface);border:.5px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;transition:border-color .2s}
+.aporte-card:hover{border-color:var(--border-hover)}
+.aporte-header{padding:16px 20px;border-bottom:.5px solid var(--border);background:rgba(255,255,255,.02);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.aporte-title{font-family:'DM Serif Display',serif;font-size:16px;color:var(--text)}
+.badge{font-size:11px;font-weight:600;padding:4px 10px;border-radius:99px;background:rgba(0,168,150,.1);color:var(--accent2);border:.5px solid rgba(0,168,150,.25)}
+
+.at{width:100%;border-collapse:collapse;font-size:12.5px}
+.at th{text-align:left;padding:8px 14px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);border-bottom:.5px solid var(--border);background:var(--surface2)}
+.at td{padding:9px 14px;border-bottom:.5px solid rgba(0,180,160,.06);vertical-align:middle}
+.at tr:last-child td{border-bottom:none}
+.at tbody tr:hover td{background:rgba(0,168,150,.04)}
+.at-money{font-variant-numeric:tabular-nums;font-family:'DM Serif Display',serif;font-size:14px}
+.at-pos{color:var(--green);font-weight:600;font-size:12px;font-variant-numeric:tabular-nums}
+.at-neg{color:var(--red);font-weight:600;font-size:12px;font-variant-numeric:tabular-nums}
+.at-neu{color:var(--muted);font-size:12px}
+
+/* POS-APORTE CHART (single wide) */
+.pos-chart-card{background:var(--surface);border:.5px solid var(--border);border-radius:var(--radius-lg);padding:26px;margin-bottom:28px;transition:border-color .2s}
+.pos-chart-card:hover{border-color:var(--border-hover)}
+.pos-chart-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;gap:12px;flex-wrap:wrap}
+.pos-chart-title{font-family:'DM Serif Display',serif;font-size:17px;color:var(--text)}
+.pos-chart-sub{font-size:11px;color:var(--muted);margin-top:3px}
+.doughnut-row{display:grid;grid-template-columns:220px 1fr;gap:24px;align-items:center}
+.doughnut-wrap{position:relative;width:220px;height:220px;flex-shrink:0}
+.doughnut-center{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none}
+.doughnut-center-val{font-family:'DM Serif Display',serif;font-size:22px;color:var(--accent2);line-height:1.1}
+.doughnut-center-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-weight:600;margin-top:2px}
+
+/* LEGEND TABLE for pos-aporte */
+.leg-table{width:100%;border-collapse:collapse;font-size:12.5px}
+.leg-table th{text-align:left;padding:6px 10px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);border-bottom:.5px solid var(--border)}
+.leg-table td{padding:8px 10px;border-bottom:.5px solid rgba(0,180,160,.05);vertical-align:middle}
+.leg-table tr:last-child td{border-bottom:none}
+.delta-badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;padding:3px 8px;border-radius:5px}
+.delta-pos{background:rgba(62,207,160,.12);color:var(--green);border:.5px solid rgba(62,207,160,.25)}
+.delta-neg{background:rgba(240,96,96,.1);color:var(--red);border:.5px solid rgba(240,96,96,.25)}
+.delta-ok{background:rgba(0,168,150,.1);color:var(--accent2);border:.5px solid rgba(0,168,150,.25)}
+
+/* empty */
+.empty{text-align:center;padding:32px;color:var(--muted);font-size:13px}
+.empty svg{margin-bottom:10px;opacity:.4}
+
+@keyframes fadeUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+.main{animation:fadeUp .4s ease both}
+
+@media(max-width:860px){.panel-row,.aporte-grid,.doughnut-row{grid-template-columns:1fr}.topbar-stats{display:none}}
+@media(max-width:560px){.main{padding:24px 16px 60px}.topbar{padding:0 16px}}
+</style>
+</head>
+<body>
+
+<nav class="topbar">
+  <div class="topbar-brand">
+    <div class="brand-mark">V</div>
+    <div>
+      <div class="brand-name">Voar <em>Consultoria</em></div>
+    </div>
+  </div>
+  <div class="topbar-stats" id="topbar-stats">
+    <div class="ts"><div class="ts-lbl">Patrimônio</div><div class="ts-val" id="ts-patrimonio">R$ 0</div></div>
+    <div class="ts"><div class="ts-lbl">Classes</div><div class="ts-val" id="ts-classes">0</div></div>
+    <div class="ts"><div class="ts-lbl">Ativos</div><div class="ts-val" id="ts-ativos">0</div></div>
+  </div>
+  <span class="topbar-badge">Gestão de Carteira</span>
+</nav>
+
+<div class="main">
+
+  <!-- ── 01 ALOCAÇÃO ESTRUTURAL ─────────────────────────── -->
+  <div class="section-title"><span class="section-num">01</span> Alocação Estrutural Alvo</div>
+  <div class="panel-row">
+
+    <!-- tabela -->
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">Classes & Percentuais Alvo</div>
+          <div class="card-sub">Defina a alocação estratégica do portfólio</div>
+        </div>
+        <span id="warn-estrutural" class="warn-tag" style="display:none">Total ≠ 100%</span>
+      </div>
+      <table class="data-table">
+        <thead><tr><th>Classe de Ativo</th><th>% Alvo</th><th></th></tr></thead>
+        <tbody id="est-body"></tbody>
+        <tfoot>
+          <tr class="totals-row">
+            <td>Total</td>
+            <td id="est-total" style="font-variant-numeric:tabular-nums;color:var(--accent2);font-family:'DM Serif Display',serif;font-size:15px">0%</td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+      <div class="table-footer">
+        <button class="btn" onclick="addEst()">+ Adicionar classe</button>
+      </div>
+    </div>
+
+    <!-- gráfico -->
+    <div class="pie-card">
+      <div>
+        <div class="pie-card-title">Distribuição Alvo</div>
+        <div class="pie-card-sub">Percentual por classe</div>
+      </div>
+      <div class="pie-wrap">
+        <canvas id="chart-alvo"></canvas>
+        <div class="pie-center">
+          <div class="pie-center-val" id="alvo-center">0%</div>
+          <div class="pie-center-lbl">alvo</div>
+        </div>
+      </div>
+      <div class="legend" id="leg-alvo"></div>
+    </div>
+  </div>
+
+  <!-- ── 02 CARTEIRA ATUAL ──────────────────────────────── -->
+  <div class="section-title"><span class="section-num">02</span> Carteira Atual do Cliente</div>
+  <div class="panel-row">
+
+    <!-- tabela -->
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">Posição Atual</div>
+          <div class="card-sub">Ativos, classes e valores alocados</div>
+        </div>
+      </div>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Ativo</th>
+            <th>Classe</th>
+            <th>Valor (R$)</th>
+            <th>% Atual</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="cart-body"></tbody>
+        <tfoot>
+          <tr class="totals-row">
+            <td colspan="2">Total</td>
+            <td id="cart-total-val" style="font-family:'DM Serif Display',serif;font-size:14px;color:var(--accent2)">R$ 0</td>
+            <td>100%</td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+      <div class="table-footer">
+        <button class="btn" onclick="addAtivo()">+ Adicionar ativo</button>
+      </div>
+    </div>
+
+    <!-- gráfico -->
+    <div class="pie-card">
+      <div>
+        <div class="pie-card-title">Alocação Atual</div>
+        <div class="pie-card-sub">vs. alvo estratégico</div>
+      </div>
+      <div class="pie-wrap">
+        <canvas id="chart-atual"></canvas>
+        <div class="pie-center">
+          <div class="pie-center-val" id="atual-center">R$ 0</div>
+          <div class="pie-center-lbl">patrimônio</div>
+        </div>
+      </div>
+      <div class="legend" id="leg-atual"></div>
+    </div>
+  </div>
+
+  <!-- ── 03 SIMULAÇÃO DE APORTE ─────────────────────────── -->
+  <div class="section-title"><span class="section-num">03</span> Simulação de Aporte</div>
+
+  <div class="aporte-grid">
+    <!-- input -->
+    <div class="aporte-input-card">
+      <div class="ai-label">Valor do Aporte</div>
+      <div class="big-wrap">
+        <span class="big-prefix">R$</span>
+        <input class="big-input" type="number" id="aporte-input" placeholder="0" min="0" step="500" oninput="calcAporte()">
+      </div>
+      <div id="aporte-info"></div>
+    </div>
+
+    <!-- tabela distribuição -->
+    <div class="aporte-card">
+      <div class="aporte-header">
+        <div>
+          <div class="aporte-title">Distribuição Sugerida</div>
+        </div>
+        <span class="badge" id="aporte-badge">Informe o valor do aporte</span>
+      </div>
+      <table class="at">
+        <thead>
+          <tr>
+            <th>Classe</th>
+            <th>% Alvo</th>
+            <th>Valor Atual</th>
+            <th>% Atual</th>
+            <th>Aportar</th>
+            <th>% Após</th>
+          </tr>
+        </thead>
+        <tbody id="aporte-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- gráfico pós-aporte -->
+  <div class="pos-chart-card">
+    <div class="pos-chart-header">
+      <div>
+        <div class="pos-chart-title">Alocação Após o Aporte</div>
+        <div class="pos-chart-sub">Cada classe exibe o desvio em relação ao alvo estratégico</div>
+      </div>
+      <div id="pos-novo-total" class="badge" style="font-family:'DM Serif Display',serif;font-size:14px"></div>
+    </div>
+    <div class="doughnut-row">
+      <div>
+        <div class="doughnut-wrap">
+          <canvas id="chart-pos"></canvas>
+          <div class="doughnut-center">
+            <div class="doughnut-center-val" id="pos-center">—</div>
+            <div class="doughnut-center-lbl">pós-aporte</div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <table class="leg-table">
+          <thead>
+            <tr>
+              <th>Classe</th>
+              <th>% Após</th>
+              <th>% Alvo</th>
+              <th>Diferença</th>
+              <th>% Atual</th>
+            </tr>
+          </thead>
+          <tbody id="leg-pos-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<footer style="background:var(--surface);border-top:.5px solid var(--border);text-align:center;padding:28px 20px;font-size:11px;color:var(--muted);position:relative;z-index:1">
+  <strong style="color:var(--text)">Voar Consultoria Financeira</strong> · Gestão de Carteira · Uso interno
+</footer>
+
+<script>
+// ─── PALETA ─────────────────────────────────────────────────────────────────
+const PAL=['#00a896','#4dd9c8','#f0a332','#4a9eff','#3ecfa0','#f06060','#a070f0','#00c4b4','#d65695','#8aabab'];
+let charts={};
+
+// ─── ESTADO ──────────────────────────────────────────────────────────────────
+let estrutural=[]; // {id, classe, pct}
+let ativos=[];     // {id, nome, classe, valor}
+
+function gid(){return Math.random().toString(36).slice(2,8)}
+function cor(i){return PAL[i%PAL.length]}
+function classCor(c){const i=estrutural.findIndex(e=>e.classe===c);return i>=0?cor(i):cor(hashStr(c)%PAL.length)}
+function hashStr(s){let h=0;for(const c of s)h=((h<<5)-h)+c.charCodeAt(0);return h>>>0}
+
+function fmtM(v){return 'R$ '+Number(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}
+function fmtSh(v){if(v>=1e6)return 'R$'+(v/1e6).toFixed(1)+'M';if(v>=1e3)return 'R$'+(v/1e3).toFixed(0)+'k';return 'R$'+v.toFixed(0)}
+function fmtP(v){return v.toFixed(1)+'%'}
+function totalPatr(){return ativos.reduce((s,a)=>s+(parseFloat(a.valor)||0),0)}
+
+// ─── CHART helper ─────────────────────────────────────────────────────────────
+function buildPie(id, labels, data, colors){
+  if(charts[id])charts[id].destroy();
+  const ctx=document.getElementById(id);if(!ctx)return;
+  const allZ=data.every(v=>v===0);
+  charts[id]=new Chart(ctx,{
+    type:'doughnut',
+    data:{
+      labels,
+      datasets:[{
+        data:allZ?[1]:data,
+        backgroundColor:allZ?['rgba(0,180,160,.1)']:colors,
+        borderWidth:2,borderColor:'#0d1a1a',hoverBorderWidth:3
+      }]
+    },
+    options:{
+      cutout:'72%',
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          backgroundColor:'#0d1a1a',titleColor:'#e8f4f4',bodyColor:'#5a8080',
+          borderColor:'rgba(0,180,160,.25)',borderWidth:1,padding:10,
+          callbacks:{label:ctx=>allZ?'':` ${ctx.label}: ${fmtP(ctx.parsed)}`}
+        }
+      },
+      animation:{duration:500}
+    }
+  });
+}
+
+function setLeg(id, items){
+  // items: {label, pct, color, sub?}
+  const el=document.getElementById(id);if(!el)return;
+  if(!items.length){el.innerHTML='<div class="empty" style="padding:16px 0;font-size:12px">Sem dados</div>';return}
+  el.innerHTML=items.map(it=>`
+    <div class="leg-row">
+      <span class="leg-dot" style="background:${it.color}"></span>
+      <span class="leg-name">${it.label}</span>
+      ${it.sub?`<span class="leg-alvo">${it.sub}</span>`:''}
+      <span class="leg-val">${it.pct}</span>
+    </div>
+  `).join('');
+}
+
+// ─── SEÇÃO 1: ESTRUTURAL ──────────────────────────────────────────────────────
+function addEst(c='',p=0){
+  estrutural.push({id:gid(),classe:c,pct:p});
+  renderEst();
+}
+
+function rmEst(id){
+  estrutural=estrutural.filter(e=>e.id!==id);
+  renderEst();renderCart();calcAporte();
+}
+
+function renderEst(){
+  const tbody=document.getElementById('est-body');
+  tbody.innerHTML=estrutural.map((e,i)=>`
+    <tr>
+      <td>
+        <div style="display:flex;align-items:center;gap:7px">
+          <span class="cdot" style="background:${cor(i)}"></span>
+          <input type="text" value="${e.classe}" placeholder="Ex: Renda Fixa" style="width:170px"
+            onchange="estrutural[${i}].classe=this.value;renderEst();renderCart();calcAporte()">
+        </div>
+      </td>
+      <td>
+        <div style="display:flex;align-items:center;gap:7px">
+          <input type="number" value="${e.pct||''}" min="0" max="100" step="0.5" placeholder="0" style="width:75px"
+            onchange="estrutural[${i}].pct=parseFloat(this.value)||0;renderEst();calcAporte()">
+          <span style="color:var(--muted);font-size:13px">%</span>
+        </div>
+      </td>
+      <td><button class="btn-rm" onclick="rmEst('${e.id}')">×</button></td>
+    </tr>
+  `).join('');
+
+  const tot=estrutural.reduce((s,e)=>s+(parseFloat(e.pct)||0),0);
+  document.getElementById('est-total').textContent=fmtP(tot);
+  const warn=document.getElementById('warn-estrutural');
+  warn.style.display=(Math.abs(tot-100)>0.1&&estrutural.length>0)?'inline':'none';
+
+  buildPie('chart-alvo',estrutural.map(e=>e.classe||'—'),estrutural.map(e=>parseFloat(e.pct)||0),estrutural.map((_,i)=>cor(i)));
+  document.getElementById('alvo-center').textContent=fmtP(tot);
+  setLeg('leg-alvo',estrutural.map((e,i)=>({label:e.classe||'—',pct:fmtP(parseFloat(e.pct)||0),color:cor(i)})));
+  document.getElementById('ts-classes').textContent=estrutural.length;
+}
+
+// ─── SEÇÃO 2: CARTEIRA ────────────────────────────────────────────────────────
+function addAtivo(n='',c='',v=0){
+  ativos.push({id:gid(),nome:n,classe:c,valor:v});
+  renderCart();calcAporte();
+}
+function rmAtivo(id){
+  ativos=ativos.filter(a=>a.id!==id);
+  renderCart();calcAporte();
+}
+
+function renderCart(){
+  const tot=totalPatr();
+  const tbody=document.getElementById('cart-body');
+
+  if(!ativos.length){
+    tbody.innerHTML=`<tr><td colspan="5"><div class="empty">Nenhum ativo adicionado</div></td></tr>`;
+  } else {
+    tbody.innerHTML=ativos.map((a,i)=>{
+      const pct=tot>0?(parseFloat(a.valor)||0)/tot*100:0;
+      const color=classCor(a.classe);
+      const classOpts=estrutural.map(e=>`<option value="${e.classe}" ${a.classe===e.classe?'selected':''}>${e.classe}</option>`).join('');
+      return `
+        <tr>
+          <td><input type="text" value="${a.nome}" placeholder="Nome do ativo" style="width:140px"
+              onchange="ativos[${i}].nome=this.value"></td>
+          <td>
+            <select style="width:145px" onchange="ativos[${i}].classe=this.value;renderCart();calcAporte()">
+              <option value="">Selecionar</option>${classOpts}
+            </select>
+          </td>
+          <td><input type="number" value="${a.valor||''}" min="0" step="100" placeholder="0" style="width:120px"
+              onchange="ativos[${i}].valor=parseFloat(this.value)||0;renderCart();calcAporte()"></td>
+          <td>
+            <div class="bar-wrap">
+              <div class="bar-bg"><div class="bar-fill" style="width:${Math.min(pct,100)}%;background:${color}"></div></div>
+              <span class="bar-pct" style="color:${color}">${fmtP(pct)}</span>
+            </div>
+          </td>
+          <td><button class="btn-rm" onclick="rmAtivo('${a.id}')">×</button></td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  document.getElementById('cart-total-val').textContent=fmtM(tot);
+  document.getElementById('ts-ativos').textContent=ativos.length;
+  document.getElementById('ts-patrimonio').textContent=fmtSh(tot);
+
+  // agrupar por classe
+  const byClass=groupByClass();
+  const labels=Object.keys(byClass);
+  const data=labels.map(c=>tot>0?byClass[c]/tot*100:0);
+  const colors=labels.map(c=>classCor(c));
+
+  buildPie('chart-atual',labels,data,colors);
+  document.getElementById('atual-center').textContent=fmtSh(tot);
+
+  // legenda com alvo
+  const legItems=labels.map((c,i)=>{
+    const alvo=estrutural.find(e=>e.classe===c);
+    const alvoPct=alvo?parseFloat(alvo.pct)||0:null;
+    const sub=alvoPct!=null?`Alvo: ${fmtP(alvoPct)}`:undefined;
+    return {label:c,pct:fmtP(data[i]),color:colors[i],sub};
+  });
+  setLeg('leg-atual',legItems);
+}
+
+function groupByClass(){
+  const out={};
+  for(const a of ativos){const k=a.classe||'Sem classe';out[k]=(out[k]||0)+(parseFloat(a.valor)||0)}
+  return out;
+}
+
+// ─── SEÇÃO 3: APORTE ──────────────────────────────────────────────────────────
+function calcAporte(){
+  const aporte=parseFloat(document.getElementById('aporte-input').value)||0;
+  const tot=totalPatr();
+  const novoTot=tot+aporte;
+
+  // info card
+  document.getElementById('aporte-info').innerHTML=`
+    <div class="ai-info-row"><span class="ai-info-lbl">Patrimônio atual</span><span class="ai-info-val">${fmtM(tot)}</span></div>
+    <div class="ai-info-row"><span class="ai-info-lbl">Aporte</span><span class="ai-info-val" style="color:var(--green)">+ ${fmtM(aporte)}</span></div>
+    <div class="ai-info-row"><span class="ai-info-lbl">Patrimônio após</span><span class="ai-info-val" style="color:var(--accent2)">${fmtM(novoTot)}</span></div>
+  `;
+  document.getElementById('aporte-badge').textContent=aporte>0?`Aporte de ${fmtM(aporte)}`:'Informe o valor do aporte';
+  document.getElementById('pos-novo-total').textContent=`Novo total: ${fmtM(novoTot)}`;
+
+  if(!estrutural.length){
+    document.getElementById('aporte-body').innerHTML=`<tr><td colspan="6"><div class="empty">Defina a alocação estrutural primeiro</div></td></tr>`;
+    renderPosChart([],novoTot);
+    return;
+  }
+
+  const byClass=groupByClass();
+
+  // calcular aportes
+  let rows=estrutural.map((e,i)=>{
+    const pctAlvo=parseFloat(e.pct)||0;
+    const valorAtual=byClass[e.classe]||0;
+    const pctAtual=tot>0?valorAtual/tot*100:0;
+    const valorAlvoNovo=novoTot*pctAlvo/100;
+    const deficit=valorAlvoNovo-valorAtual;
+    return{classe:e.classe,pctAlvo,valorAtual,pctAtual,valorAlvoNovo,deficit,aportar:0,pctDepois:0,color:cor(i)};
+  });
+
+  // distribuir aporte proporcionalmente aos déficits positivos
+  const totalDeficit=rows.filter(r=>r.deficit>0).reduce((s,r)=>s+r.deficit,0);
+  if(totalDeficit>0&&aporte>0){
+    rows=rows.map(r=>{
+      if(r.deficit<=0)return r;
+      const frac=r.deficit/totalDeficit;
+      const aportar=Math.min(r.deficit,aporte*frac);
+      return{...r,aportar};
+    });
+    // ajuste: distribuir resto pelas classes com maior déficit restante
+    let somaAportado=rows.reduce((s,r)=>s+r.aportar,0);
+    let resto=aporte-somaAportado;
+    if(resto>0.01){
+      const pctTot=rows.reduce((s,r)=>s+r.pctAlvo,0)||100;
+      rows=rows.map(r=>({...r,aportar:r.aportar+resto*(r.pctAlvo/pctTot)}));
+    }
+  } else if(aporte>0){
+    // todos acima do alvo: distribuir proporcional ao alvo
+    const pctTot=rows.reduce((s,r)=>s+r.pctAlvo,0)||100;
+    rows=rows.map(r=>({...r,aportar:aporte*(r.pctAlvo/pctTot)}));
+  }
+
+  rows=rows.map(r=>({
+    ...r,
+    pctDepois:novoTot>0?(r.valorAtual+r.aportar)/novoTot*100:0
+  }));
+
+  // tabela
+  const tbody=document.getElementById('aporte-body');
+  tbody.innerHTML=rows.map(r=>{
+    const diffClass=r.aportar>0?'at-pos at-money':'at-money';
+    return`<tr>
+      <td><div style="display:flex;align-items:center;gap:6px"><span class="cdot" style="background:${r.color}"></span>${r.classe}</div></td>
+      <td style="font-variant-numeric:tabular-nums">${fmtP(r.pctAlvo)}</td>
+      <td class="at-money" style="color:var(--text)">${fmtM(r.valorAtual)}</td>
+      <td style="font-variant-numeric:tabular-nums;color:var(--muted)">${fmtP(r.pctAtual)}</td>
+      <td class="${diffClass}" style="color:${r.aportar>0?'var(--accent2)':'var(--muted)'}">${fmtM(r.aportar)}</td>
+      <td>
+        <div class="bar-wrap">
+          <div class="bar-bg"><div class="bar-fill" style="width:${Math.min(r.pctDepois,100)}%;background:${r.color}"></div></div>
+          <span style="font-size:11px;font-variant-numeric:tabular-nums;width:36px;text-align:right;color:${r.color}">${fmtP(r.pctDepois)}</span>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+
+  renderPosChart(rows,novoTot,tot);
+}
+
+function renderPosChart(rows,novoTot,tot){
+  document.getElementById('pos-center').textContent=novoTot>0?fmtSh(novoTot):'—';
+
+  const labels=rows.map(r=>r.classe);
+  const data=rows.map(r=>r.pctDepois);
+  const colors=rows.map(r=>r.color);
+
+  buildPie('chart-pos',labels,data,colors);
+
+  // tabela de legenda com delta
+  const legBody=document.getElementById('leg-pos-body');
+  if(!rows.length){legBody.innerHTML=`<tr><td colspan="5" class="empty" style="padding:16px">Sem dados</td></tr>`;return}
+
+  legBody.innerHTML=rows.map(r=>{
+    const delta=r.pctDepois-r.pctAlvo;
+    const absDelta=Math.abs(delta);
+    let badgeClass='delta-ok';
+    let sign='';
+    if(delta>0.3){badgeClass='delta-pos';sign='+'}
+    else if(delta<-0.3){badgeClass='delta-neg';sign=''}
+    const arrow=delta>0.3?'▲':delta<-0.3?'▼':'✓';
+    const deltaLabel=absDelta<0.1?'No alvo':`${sign}${fmtP(delta)} vs alvo`;
+    const pctAtual=tot>0&&r.valorAtual>0?r.valorAtual/tot*100:0;
+    return`<tr>
+      <td><div style="display:flex;align-items:center;gap:6px"><span class="leg-dot" style="background:${r.color}"></span>${r.classe}</div></td>
+      <td style="font-variant-numeric:tabular-nums;font-weight:600;color:var(--accent2)">${fmtP(r.pctDepois)}</td>
+      <td style="font-variant-numeric:tabular-nums;color:var(--muted)">${fmtP(r.pctAlvo)}</td>
+      <td><span class="delta-badge ${badgeClass}">${arrow} ${deltaLabel}</span></td>
+      <td style="font-variant-numeric:tabular-nums;color:var(--muted);font-size:11px">${fmtP(pctAtual)}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ─── DADOS DE EXEMPLO ─────────────────────────────────────────────────────────
+addEst('Renda Fixa',40);
+addEst('Renda Variável',30);
+addEst('Fundos Imobiliários',15);
+addEst('Internacional',10);
+addEst('Alternativo',5);
+
+addAtivo('Tesouro IPCA+ 2035','Renda Fixa',45000);
+addAtivo('CDB Banco X','Renda Fixa',28000);
+addAtivo('LCI Banco Y','Renda Fixa',12000);
+addAtivo('PETR4','Renda Variável',18000);
+addAtivo('VALE3','Renda Variável',15000);
+addAtivo('ITUB4','Renda Variável',9000);
+addAtivo('KNRI11','Fundos Imobiliários',22000);
+addAtivo('HGLG11','Fundos Imobiliários',8000);
+addAtivo('BDR AAPL34','Internacional',12000);
+addAtivo('ETF IVVB11','Internacional',7000);
+addAtivo('BTC','Alternativo',4000);
+
+renderCart();
+calcAporte();
+</script>
+</body>
+</html>
