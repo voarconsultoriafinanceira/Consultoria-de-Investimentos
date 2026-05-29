@@ -1868,8 +1868,6 @@ calcAporte();
 })();
 
 
-(function(){
-
 // ===== RENTABILIDADE =====
 let rentModo = 'nominal';
 let tempoUnit = 'anos';
@@ -2145,10 +2143,6 @@ function buildCompare() {
 // Init sim
 runSim();
 
-})();
-
-(function(){
-
 // ===== HP-12C =====
 let hpVar = 'vf';
 let hpChartInst = null;
@@ -2207,6 +2201,20 @@ function hpSolve() {
   const vals = {};
   for (const k of need) vals[k] = get('hp-in-'+k);
 
+  // Validation: n and i must be > 0 when required
+  const erros = [];
+  if (need.includes('n') && vals.n <= 0) erros.push('N (períodos) deve ser maior que zero');
+  if (need.includes('i') && vals.i < 0) erros.push('Taxa (i) não pode ser negativa');
+  if (hpVar === 'vf' && vals.vp < 0) erros.push('VP não pode ser negativo');
+  if (erros.length) {
+    document.getElementById('hp-result-card').style.display = 'block';
+    document.getElementById('hp-result-lbl').textContent = 'Atenção';
+    document.getElementById('hp-result-val').textContent = '—';
+    document.getElementById('hp-result-val').style.color = 'var(--amber)';
+    document.getElementById('hp-result-sub').textContent = erros.join(' · ');
+    return;
+  }
+
   const fR = v => 'R$ '+Math.abs(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
   const fP = v => v.toFixed(4).replace('.',',')+' % a.m.';
   const fN = v => Math.round(Math.abs(v))+' meses ('+  (Math.abs(v)/12).toFixed(1).replace('.',',')+' anos)';
@@ -2223,38 +2231,55 @@ function hpSolve() {
       resultLabel = 'Valor Futuro'; resultFormatted = fR(resultado);
       resultSub = `Com VP=${fR(vp)}, PMT=${fR(pmt)}/mês, ${n} meses a ${i.toFixed(2).replace('.',',')}% a.m.`;
     } else if (hpVar === 'vp') {
-      // VP = VF/(1+i)^n - PMT*[((1+i)^n-1)/i] / (1+i)^n
+      // VP = VF/(1+i)^n - PMT*((1+i)^n - 1)/(i*(1+i)^n)
+      // Derivado de: VF = VP*(1+i)^n + PMT*((1+i)^n - 1)/i
+      // => VP = (VF - PMT*((1+i)^n - 1)/i) / (1+i)^n
       const { vf, pmt, n, i } = vals;
       const im = i/100;
       if (im === 0) resultado = vf - pmt*n;
-      else resultado = vf/Math.pow(1+im,n) - pmt*(Math.pow(1+im,n)-1)/(im*Math.pow(1+im,n));
+      else {
+        const pw = Math.pow(1+im, n);
+        resultado = (vf - pmt*(pw-1)/im) / pw;
+      }
       resultLabel = 'Valor Presente'; resultFormatted = fR(resultado);
       resultSub = `Para atingir ${fR(vf)} em ${n} meses com PMT=${fR(pmt)}/mês a ${i.toFixed(2).replace('.',',')}% a.m.`;
     } else if (hpVar === 'pmt') {
       // PMT = (VF - VP*(1+i)^n) * i / ((1+i)^n - 1)
+      // Derivado de: VF = VP*(1+i)^n + PMT*((1+i)^n - 1)/i
       const { vp, vf, n, i } = vals;
       const im = i/100;
-      if (im === 0) resultado = (vf - vp) / (n||1);
-      else resultado = (vf - vp*Math.pow(1+im,n)) * im / (Math.pow(1+im,n)-1);
+      if (im === 0) resultado = n > 0 ? (vf - vp) / n : 0;
+      else {
+        const pw = Math.pow(1+im, n);
+        resultado = (vf - vp*pw) * im / (pw - 1);
+      }
       resultLabel = 'Aporte Mensal'; resultFormatted = fR(resultado)+'/mês';
       resultSub = `Para atingir ${fR(vf)} partindo de ${fR(vp)} em ${n} meses a ${i.toFixed(2).replace('.',',')}% a.m.`;
     } else if (hpVar === 'n') {
-      // N = log(VF*i/PMT + 1) / log(1+i) ... resolução numérica (Newton)
+      // N: resolve numericamente VF = VP*(1+i)^n + PMT*((1+i)^n - 1)/i
+      // Solução analítica: n = log((VF*i + PMT) / (VP*i + PMT)) / log(1+i)
       const { vp, vf, pmt, i } = vals;
       const im = i/100;
-      if (im === 0) { resultado = pmt > 0 ? (vf-vp)/pmt : null; }
-      else {
-        // Bisection
-        let lo=1, hi=10000, mid=0;
-        for (let iter=0;iter<200;iter++) {
-          mid = (lo+hi)/2;
-          const fv = vp*Math.pow(1+im,mid) + pmt*(Math.pow(1+im,mid)-1)/im;
-          if (Math.abs(fv-vf)<0.01) break;
-          if (fv < vf) lo=mid; else hi=mid;
+      if (im === 0) {
+        resultado = pmt > 0 ? (vf - vp) / pmt : null;
+      } else {
+        const num = vf*im + pmt;
+        const den = vp*im + pmt;
+        if (den <= 0 || num <= 0 || num/den <= 0) {
+          // fallback bisection
+          let lo=1, hi=10000, mid=0;
+          for (let iter=0;iter<300;iter++) {
+            mid = (lo+hi)/2;
+            const fv = vp*Math.pow(1+im,mid) + pmt*(Math.pow(1+im,mid)-1)/im;
+            if (Math.abs(fv-vf)<0.01) break;
+            if (fv < vf) lo=mid; else hi=mid;
+          }
+          resultado = mid;
+        } else {
+          resultado = Math.log(num/den) / Math.log(1+im);
         }
-        resultado = mid;
       }
-      if (resultado === null) throw new Error('Sem solução');
+      if (resultado === null || resultado <= 0) throw new Error('Sem solução — verifique os valores');
       resultLabel = 'Número de Períodos'; resultFormatted = fN(resultado);
       resultSub = `Para atingir ${fR(vf)} com VP=${fR(vp)}, PMT=${fR(pmt)}/mês a ${i.toFixed(2).replace('.',',')}% a.m.`;
     } else if (hpVar === 'i') {
@@ -2348,7 +2373,6 @@ function buildHpChart(hpVar, vals, resultado) {
 
 hpSelect('vf');
 
-})();
 </script>
 </body>
 </html>
